@@ -1,56 +1,38 @@
-/* 
+/*
  * softnr prototype code. 
  * Logs current reading to thingspeak.
  */
 
 #include "ESP8266WiFi.h"
-#include "DHT.h"
 #include "gpio.h"
 
-const char* ssid     = "";
-const char* password = "";
+#include <ESP8266WebServer.h>
+#include <DNSServer.h>
+#include <WiFiManager.h>
 
 const char* host = "184.106.153.149";
-const char* thingspeakKey = "";
+String thingspeakKey;
 
 void setup() {
-  Serial.begin(115200);
-  delay(10);
 
-  // We start by connecting to a WiFi network
+    WiFiManager wifiManager;
+    
+    wifiManager.resetSettings();
 
-  Serial.println();
-  Serial.println();
-  Serial.print("Connecting to ");
-  Serial.println(ssid);
-  
-  WiFi.begin(ssid, password);
-  
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
+    WiFiManagerParameter custom_param("thingspeak", "Thingspeak Key", "", 40);
+    wifiManager.addParameter(&custom_param);
+    
+    wifiManager.autoConnect("AutoConnectAP");
 
-  Serial.println();
-  Serial.println("WiFi connected");  
-  Serial.println("IP address: ");
-  Serial.println(WiFi.localIP());
+    thingspeakKey = custom_param.getValue(); 
 }
-
-int value = 0;
 
 void loop() {
   delay(5000);
-  ++value;
 
-  Serial.print("connecting to ");
-  Serial.println(host);
-  
-  // Use WiFiClient class to create TCP connections
   WiFiClient client;
   const int httpPort = 80;
   if (!client.connect(host, httpPort)) {
-    Serial.println("connection failed");
     return;
   }
   int reading = analogRead(A0);
@@ -62,14 +44,11 @@ void loop() {
   if (distance > 80) {
     distance = 80;
   }
-  Serial.println(reading);
+
   // We now create a URI for the request
   String url = "/update?key=" + thingspeakKey;
   url += "&field1=";
   url += distance;
-  
-  Serial.print("Requesting URL: ");
-  Serial.println(url);
   
   // This will send the request to the server
   client.print(String("GET ") + url + " HTTP/1.1\r\n" +
@@ -80,9 +59,6 @@ void loop() {
   // Read all the lines of the reply from server and print them to Serial
   while(client.available()){
     String line = client.readStringUntil('\r');
-    Serial.print(line);
   }
-  
-  Serial.println();
-  Serial.println("closing connection");
 }
+
